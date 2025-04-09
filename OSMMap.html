@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #controls {
+      padding: 10px;
+      display: flex;
+      gap: 5px;
+      box-sizing: border-box;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 5px;
+    }
+    button {
+      padding: 5px 10px;
+    }
+    #map {
+      height: calc(100% - 60px);
+      width: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body>
+  <div id="controls">
+    <input type="text" id="locationInput" placeholder="Search location (e.g. Caringin)">
+    <button onclick="searchLocation()">Search</button>
+    <button onclick="confirmLocation()">Confirm</button>
+  </div>
+  <div id="map"></div>
+
+  <script>
+    let map, marker;
+    let selectedLat = null;
+    let selectedLng = null;
+
+    window.onload = function () {
+      map = L.map('map').setView([-6.2, 106.8], 10);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      // Redraw the map when it loads (fix display bug in Google Sheets sidebar)
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 500);
+
+      map.on('click', function (e) {
+        selectedLat = e.latlng.lat.toFixed(6);
+        selectedLng = e.latlng.lng.toFixed(6);
+
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([selectedLat, selectedLng]).addTo(map);
+      });
+    }
+
+    function searchLocation() {
+      const query = document.getElementById('locationInput').value;
+      if (!query) return;
+
+      fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query))
+        .then(response => response.json())
+        .then(data => {
+          if (data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+
+            map.setView([lat, lon], 14);
+          } else {
+            alert("Lokasi tidak ditemukan.");
+          }
+        });
+    }
+
+    function confirmLocation() {
+      if (selectedLat && selectedLng) {
+        google.script.run.setLatLngToSheet(selectedLat, selectedLng);
+        alert("Koordinat disimpan:\nLat: " + selectedLat + "\nLng: " + selectedLng);
+      } else {
+        alert("Klik dulu lokasi di peta sebelum konfirmasi.");
+      }
+    }
+  </script>
+</body>
+</html>
